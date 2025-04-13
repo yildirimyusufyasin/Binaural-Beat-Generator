@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Binaural Beat Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+      color: #fff;
+      margin: 0;
+      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: start;
+      min-height: 100vh;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 2rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      text-align: center;
+      animation: fadeIn 1.2s ease;
+    }
+    canvas {
+      width: 100% !important;
+      height: 80px !important;
+      display: block;
+      border-radius: 12px;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.2rem;
+      background: linear-gradient(to right, #92fe9d, #00c9ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    label, select, input {
+      display: block;
+      width: 100%;
+      margin-top: 1rem;
+      font-size: 1rem;
+    }
+    input, select {
+      padding: 0.75rem;
+      border-radius: 12px;
+      border: none;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    button {
+      margin-top: 1.5rem;
+      padding: 0.9rem 1.3rem;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(to right, #00c9ff, #92fe9d);
+      color: #000;
+      font-weight: bold;
+      font-size: 1rem;
+      width: 100%;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    button:hover {
+      transform: scale(1.04);
+      box-shadow: 0 0 20px rgba(146, 254, 157, 0.4);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Binaural Beat Generator 🎧</h1>
+    <div class="wave-display"><canvas id="visualizer"></canvas></div>
+    <label for="modeSelect">🎛️ Choose a Mode</label>
+    <select id="modeSelect" onchange="setPreset()">
+      <option value="custom">✨ Custom</option>
+      <option value="focus">🧠 Focus (15Hz)</option>
+      <option value="deepfocus">🎯 Deep Focus (10Hz)</option>
+      <option value="relax">😌 Relax (6Hz)</option>
+      <option value="meditate">🧘 Meditate (4Hz)</option>
+      <option value="sleep">😴 Sleep (2.5Hz)</option>
+    </select>
+    <label for="baseFreq">🎵 Base Frequency (Hz)</label>
+    <input type="number" id="baseFreq" value="200" />
+    <label for="beatFreq">🔊 Beat Frequency (Hz)</label>
+    <input type="number" id="beatFreq" value="10" />
+    <label for="volume">🔈 Volume</label>
+    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5" />
+    <label for="waveType">🌊 Wave Type</label>
+    <select id="waveType">
+      <option value="sine">Sine</option>
+      <option value="square">Square</option>
+      <option value="triangle">Triangle</option>
+      <option value="sawtooth">Sawtooth</option>
+    </select>
+    <label for="timer">⏱️ Auto Stop (minutes)</label>
+    <input type="number" id="timer" min="0" max="120" step="1" value="0" />
+    <button onclick="startBinauralBeat()">▶️ Start</button>
+    <button onclick="stopBinauralBeat()">⏹️ Stop</button>
+  </div>
+  <script>
+    let audioCtx, oscLeft, oscRight, gainNode, pannerLeft, pannerRight, stopTimeout;
+
+    function setPreset() {
+      const mode = document.getElementById('modeSelect').value;
+      const beat = document.getElementById('beatFreq');
+      if (mode === 'focus') beat.value = 15;
+      else if (mode === 'deepfocus') beat.value = 10;
+      else if (mode === 'relax') beat.value = 6;
+      else if (mode === 'meditate') beat.value = 4;
+      else if (mode === 'sleep') beat.value = 2.5;
+    }
+
+    function startBinauralBeat() {
+      stopBinauralBeat();
+
+      const baseFreq = parseFloat(document.getElementById('baseFreq').value);
+      const beatFreq = parseFloat(document.getElementById('beatFreq').value);
+      const volume = parseFloat(document.getElementById('volume').value);
+      const waveType = document.getElementById('waveType').value;
+      const timer = parseInt(document.getElementById('timer').value);
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      oscLeft = audioCtx.createOscillator();
+      oscRight = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      pannerLeft = audioCtx.createStereoPanner();
+      pannerRight = audioCtx.createStereoPanner();
+
+      pannerLeft.pan.value = -1;
+      pannerRight.pan.value = 1;
+
+      oscLeft.frequency.value = baseFreq;
+      oscRight.frequency.value = baseFreq + beatFreq;
+      oscLeft.type = waveType;
+      oscRight.type = waveType;
+
+      gainNode.gain.value = volume;
+
+      oscLeft.connect(pannerLeft).connect(gainNode).connect(audioCtx.destination);
+      oscRight.connect(pannerRight).connect(gainNode).connect(audioCtx.destination);
+
+      oscLeft.start();
+      oscRight.start();
+
+      if (stopTimeout) clearTimeout(stopTimeout);
+      if (timer > 0) stopTimeout = setTimeout(stopBinauralBeat, timer * 60000);
+    }
+
+    function stopBinauralBeat() {
+      try {
+        if (oscLeft) { oscLeft.stop(); oscLeft.disconnect(); }
+        if (oscRight) { oscRight.stop(); oscRight.disconnect(); }
+        if (gainNode) gainNode.disconnect();
+        if (audioCtx && audioCtx.state !== 'closed') audioCtx.close();
+      } catch (e) { console.error(e); }
+      if (stopTimeout) clearTimeout(stopTimeout);
+    }
+  </script>
+</body>
+</html>
